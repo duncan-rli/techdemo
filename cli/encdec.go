@@ -1,7 +1,13 @@
+//
+// encrypt/decrypt application for core interview test
+//
+
 package main
 
-import ("fmt";"flag";"encdec/client"
+import ("fmt";"flag";"../client"
 //	"encoding/base64"
+//	"encoding/base64"
+	"strconv"
 )
 
 func usageText(){
@@ -26,17 +32,25 @@ func doOperation(op string, id []byte, param []byte, clientif client.Client)  {
 	var data []byte
 	if op == "e" {
 		key, err = clientif.Store(id, param)
-		if 0 == len(err.Error()) {
+		if nil != err {
 			fmt.Println(err.Error())
 		} else {
+			fmt.Println("Key:")
+			for i:=0; i<len(key); i++{
+				fmt.Print(key[i], " ")
+			}
+			fmt.Println()
+			fmt.Println("Key:")
 			fmt.Println(key)
 		}
 	} else if op == "d" {
+		fmt.Println(param)
 		data, err = clientif.Retrieve(id, param)
-		if 0 == len(err.Error()) {
+		if nil != err {
 			fmt.Println(err.Error())
 		} else {
-			fmt.Println(data)
+			fmt.Println("Data:")
+			fmt.Println(string(data))
 		}
 	}
 }
@@ -46,27 +60,32 @@ func main() {
 	flag.Parse()
 	args:=flag.Args()
 
-	if len(args) == 0{
+	if len(args) < 3{
 		fmt.Println("Missing fields")
 		usageText()
 		return
 	}
-	if len(args) > 3{
-		fmt.Println("Too many fields")
-		usageText()
-		return
-	}
-
-fmt.Println(args[0], args[1], args[2])
-
-	// will probably need to encode things better like this
-//	p1:= base64.StdEncoding(args[1])
-//	p2:= base64.StdEncoding(args[2])
 
 	p1:=[]byte(args[1])
-	p2:=[]byte(args[2])
-	var encdecClient client.Client
-	doOperation(args[0], p1, p2, encdecClient)
+	var p2 []byte
 
+	data:= make([]byte,len(args))
+
+	if args[0]=="d" {
+		for i := 2; i < len(args); i++ {
+			s := (args[i])
+			v,_:=strconv.Atoi(s)
+			data[i-2] = byte(v)
+		}
+		p2=data
+	}else{
+		p2=[]byte(args[2])
+	}
+//	fmt.Println(args)
+	fmt.Println(p2)
+
+	var clientObj client.ClientStruct
+
+	doOperation(args[0], p1, p2, clientObj)
 
 }

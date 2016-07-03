@@ -1,95 +1,73 @@
 package client
 
 import (
-	"log"
+//	"log"
 	"net/http"
 	"crypto/tls"
 	"io/ioutil"
 	"crypto/x509"
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"errors"
+	"encoding/base64"
 )
 
-// not used
-func get(url string) string {
-
-	// Need to know about self signed cert
-	certs := x509.NewCertPool()
-	pemData, err := ioutil.ReadFile("/tmp/server.pem")
-	if err != nil {
-		// do error
-	}
-	certs.AppendCertsFromPEM(pemData)
-
-	// Create a transport that knows server cert
-	tr := &http.Transport{
-		TLSClientConfig:    &tls.Config{RootCAs: certs},
-		DisableCompression: true,
-	}
-	client := &http.Client{Transport: tr}
-
-	// Get
-	resp, err := client.Get("https://localhost:8443/"+url)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
-	}
-
-	// All this to get the body in a string
-	defer resp.Body.Close()
-	data,err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal("ReadAll: ", err)
-	}
-	return string(data)
-}
+type ClientStruct struct {}
 
 
-func postjson(url string, content []byte ) ([]byte, err error) {
+
+func postJson(url string, content []byte ) ([]byte, error) {
 
 	// Need to know about self signed cert
 	certs := x509.NewCertPool()
 	// Read public key
-	pemData, err := ioutil.ReadFile("/tmp/server.pem")
+	pemData, err := ioutil.ReadFile("/etc/ssl/tmp/server.pem")
 	if err != nil {
 		return nil, err
 	}
-	certs.AppendCertsFromPEM(pemData)
-
+	b := certs.AppendCertsFromPEM(pemData)
+	if b == false{
+		e := errors.New("Failed to load certificate")
+		return nil, e
+	}
 	// Create a transport that knows server cert
 	tr := &http.Transport{
 		TLSClientConfig:    &tls.Config{RootCAs: certs},
 		DisableCompression: true,
 	}
-	client := &http.Client{Transport: tr}
 
+	hClient := &http.Client{Transport: tr}
 	req, err := http.NewRequest("POST", "https://localhost:8443/"+url, bytes.NewBuffer(content))
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("X-Custom-Header", "myvalue")
 	req.Header.Set("Content-Type", "application/json")
 
 	// POST
-	resp, err := client.Do(req)
+	resp, err := hClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	// All this to get the body in a string
+	// get the body in a string
 	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 
 	return data, err
 }
 
-func Store(id, payload []byte) ([]byte, error) {
+func (ClientStruct) Store(id, payload []byte) ([]byte, error) {
 	var aesKey []byte
 	var err error
-	data :=  map[string]int{"id": id, "payload": payload}
-	jdata, _ := json.Marshal(data)
 
-	rdata, err := postjson("store", jdata)
-
+	data := map[string][]byte{"id": id, "payload": payload}
+	jData, _ := json.Marshal(data)
+	rData, err := postJson("store", jData)
 	if err == nil {
-		res := map[string]int{}
-		json.Unmarshal(rdata, &res)
+		res := map[string][]byte{}
+		json.Unmarshal(rData, &res)
 		aesKey = res["aesKey"]
 	}
 	return aesKey, err
@@ -98,19 +76,26 @@ func Store(id, payload []byte) ([]byte, error) {
 // Retrieve accepts an id and an AES key, and requests that the
 // encryption-server retrieves the original (decrypted) bytes stored
 // with the provided id
-func Retrieve(id, aesKey []byte) ([]byte, error) {
+func (ClientStruct) Retrieve(id, aesKey []byte) ([]byte, error) {
 	var payload []byte
 	var err error
-	data :=  map[string]int{"id": id, "aesKey": aesKey}
-	jdata, _ := json.Marshal(data)
+	strAesKey := base64.StdEncoding.EncodeToString(aesKey)
+	if len(strAesKey) == 0{
+		err := errors.New("Key encode failed")
+		return nil, err
+	}
+	fmt.Println("aes", len(strAesKey), strAesKey)
+//	data :=  map[string][]byte{"id": id, "aesKey": strAesKey}
+	data :=  map[string][]byte{"id": id, "aesKey": []byte(strAesKey)}
+	fmt.Println(data)
+	jData, _ := json.Marshal(data)
 
-	rdata, err := postjson("retrieve", jdata)
+	rData, err := postJson("retrieve", jData)
 
 	if err == nil {
-		res := map[string]int{}
-		json.Unmarshal(rdata, &res)
+		res := map[string][]byte{}
+		json.Unmarshal(rData, &res)
 		payload = res["payload"]
 	}
-
 	return payload, err
 }
