@@ -6,21 +6,13 @@ import (
 	"net/http"
 	"fmt"
 	"io/ioutil"
-"crypto/aes"
-"crypto/cipher"
-"crypto/rand"
-"encoding/base64"
-"errors"
-//"fmt"
-//"io"
-//"log"
-//	"crypto/rsa"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
 	"encoding/json"
-//	"math/big"
 	"os"
-
-//	"bytes"
-//	"encoding/gob"
 )
 
 
@@ -83,23 +75,23 @@ func StoreServer(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	jData, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		log.Fatal("ReadAll: ", err)
+		log.Println("ReadAll: ", err)
 		return
 	}
 
 	res := map[string][]byte{}
 	json.Unmarshal(jData, &res)
-	fmt.Println("res ",res)
+fmt.Println("res ",res)
 	id:= res["id"]
 	data:= res["payload"]
 
 	// data to secure store
-	fmt.Println(string(jData))
+fmt.Println("jd",string(jData))
 
 	key := make([]byte, 32)
 	_, err = rand.Read(key)
 	if err != nil{
-		log.Fatal("Key Gen: ", err)
+		log.Println("Key Gen: ", err)
 		return
 	}
 
@@ -108,7 +100,7 @@ func StoreServer(w http.ResponseWriter, req *http.Request) {
 	var encData []byte
 	encData, err = encrypt(key, data)
 	if err != nil{
-		log.Fatal("Encryption Error: ", err)
+		log.Println("Encryption Error: ", err)
 		return
 	}
 
@@ -180,7 +172,7 @@ func RetrieveServer(w http.ResponseWriter, req *http.Request) {
  	decData, err = decrypt(decKey, encData)
 
 	if err != nil{
-		log.Fatal("Decryption Error: ", err)
+		log.Println("Decryption Error: ", err)
 		return
 	}
 

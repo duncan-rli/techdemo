@@ -1,14 +1,12 @@
 package client
 
 import (
-//	"log"
 	"net/http"
 	"crypto/tls"
 	"io/ioutil"
 	"crypto/x509"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"errors"
 	"encoding/base64"
 )
@@ -84,10 +82,8 @@ func (ClientStruct) Retrieve(id, aesKey []byte) ([]byte, error) {
 		err := errors.New("Key encode failed")
 		return nil, err
 	}
-	fmt.Println("aes", len(strAesKey), strAesKey)
-//	data :=  map[string][]byte{"id": id, "aesKey": strAesKey}
+//	fmt.Println("aes", len(strAesKey), strAesKey)
 	data :=  map[string][]byte{"id": id, "aesKey": []byte(strAesKey)}
-	fmt.Println(data)
 	jData, _ := json.Marshal(data)
 
 	rData, err := postJson("retrieve", jData)

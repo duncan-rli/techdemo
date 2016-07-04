@@ -5,9 +5,11 @@
 package main
 
 import ("fmt";"flag";"../client"
-//	"encoding/base64"
-//	"encoding/base64"
 	"strconv"
+	"strings"
+	"os"
+	"io/ioutil"
+	"bytes"
 )
 
 func usageText(){
@@ -17,12 +19,14 @@ func usageText(){
 	fmt.Println("       id to identify data")
 	fmt.Println("       data to encrypt")
 	fmt.Println("    this will return the key required to decrypt the data")
+	fmt.Println("	encdec e id \"data\" > key.txt")
 
 	fmt.Println("")
 	fmt.Println("   encdec d id key")
 	fmt.Println("       d to decrypt")
 	fmt.Println("       id to identify data")
 	fmt.Println("       key to unlock data")
+	fmt.Println("	encdec d id < key.txt")
 	fmt.Println("")
 }
 
@@ -35,13 +39,9 @@ func doOperation(op string, id []byte, param []byte, clientif client.Client)  {
 		if nil != err {
 			fmt.Println(err.Error())
 		} else {
-			fmt.Println("Key:")
-			for i:=0; i<len(key); i++{
-				fmt.Print(key[i], " ")
-			}
-			fmt.Println()
-			fmt.Println("Key:")
+			fmt.Print("Key:")
 			fmt.Println(key)
+			fmt.Println()
 		}
 	} else if op == "d" {
 		fmt.Println(param)
@@ -60,32 +60,72 @@ func main() {
 	flag.Parse()
 	args:=flag.Args()
 
-	if len(args) < 3{
-		fmt.Println("Missing fields")
-		usageText()
-		return
+	var in *os.File
+	keyFileArg := args[2:]
+	var keyFileStdin []byte
+	if len(args) < 3 && in == nil{
+		in = os.Stdin
+		if in == nil {
+			fmt.Println("Missing fields")
+			usageText()
+			return
+		}
+		keyFileStdin,_=ioutil.ReadAll(in)
 	}
 
 	p1:=[]byte(args[1])
 	var p2 []byte
 
-	data:= make([]byte,len(args))
-
 	if args[0]=="d" {
-		for i := 2; i < len(args); i++ {
-			s := (args[i])
-			v,_:=strconv.Atoi(s)
-			data[i-2] = byte(v)
+		offset := 0
+		if len(args) >= 3 {
+			// arg on cmd line
+			keyFileArg[0] = strings.TrimLeft(keyFileArg[0], "Key: ")
+			keyFileArg[0] = strings.TrimLeft(keyFileArg[0], "key: ")
+
+			data:= make([]byte,len(args))
+			for i, id := offset, 0; i < len(keyFileArg); i, id = i + 1, id + 1 {
+				s := (keyFileArg[i])
+				s = strings.TrimLeft(s, "[ ")
+				s = strings.TrimRight(s, "] ")
+				v, _ := strconv.Atoi(s)
+				data[id] = byte(v)
+			}
+			p2 = data
+		} else {
+			// arg from stdin
+			if bytes.Equal(keyFileStdin[0:6], ([]byte("Key:\n[")[:])) == true {
+				offset = 6
+			}
+			keyFileStdin = bytes.TrimLeft(keyFileStdin, "Key: ")
+			keyFileStdin = bytes.TrimLeft(keyFileStdin, "key: ")
+			spl := bytes.Split(keyFileStdin, []byte(" "))
+			i := 0
+			data:= make([]byte,len(keyFileStdin))
+			for _,v := range spl {
+				s:= v
+				s= bytes.TrimLeft(s, "[")
+				s= bytes.TrimRight(s, "]")
+				if bytes.Contains(s, []byte("]")){
+					for i,va:= range s {
+						fmt.Println("rem",va, i)
+						if va == byte(93){
+							s = s[0:i]
+						}
+					}
+				}
+				ss := string(s)
+				num, _ := strconv.Atoi(ss)
+				data[i] = byte(num)
+				i++
+			}
+			p2 = data[0:i]
 		}
-		p2=data
 	}else{
 		p2=[]byte(args[2])
 	}
-//	fmt.Println(args)
-	fmt.Println(p2)
 
 	var clientObj client.ClientStruct
-
 	doOperation(args[0], p1, p2, clientObj)
 
 }
