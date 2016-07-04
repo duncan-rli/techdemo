@@ -45,7 +45,6 @@ func encrypt(key, text []byte) ([]byte, error) {
 }
 
 func decrypt(key, text []byte) ([]byte, error) {
-	fmt.Println("dec", key)
 	block, err := aes.NewCipher(key[0:32])
 	if err != nil {
 		return nil, err
@@ -58,6 +57,7 @@ func decrypt(key, text []byte) ([]byte, error) {
 	cfb := cipher.NewCFBDecrypter(block, iv)
 	cfb.XORKeyStream(text, text)
 
+	fmt.Println("codekey", key)
 	fmt.Println("t",text)
 
 	data, err := base64.StdEncoding.DecodeString(string(text))
@@ -161,22 +161,29 @@ func RetrieveServer(w http.ResponseWriter, req *http.Request) {
 	}
 */
 	if store[string(id)] == nil{
-		fmt.Println("ID not found in store")
+		s:=`{"payload":"ID not found in store"}`
+		io.WriteString(w, s)
 		return
 	}
 
-	encData:= store[string(id)]
+fmt.Println("id",id, string(id))
+	entry := store[string(id)]
 
+	encData := make([]byte, len(entry))
+	copy (encData, entry)
 
 	var decData []byte
  	decData, err = decrypt(decKey, encData)
 
 	if err != nil{
-		log.Println("Decryption Error: ", err)
+		s:=`{"payload":"Decryption Error: `+err.Error()+`"}`
+fmt.Println("decerr", s)
+
+		io.WriteString(w, s)
 		return
 	}
 
-	// reply to client
+	// reply to client with data
 	skey := base64.StdEncoding.EncodeToString(decData)
 	s:=`{"payload":"`+skey+`"}`
 	fmt.Println("s",s)
