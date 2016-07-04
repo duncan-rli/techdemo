@@ -4,7 +4,8 @@
 
 package main
 
-import ("fmt";"flag";"../client"
+import (
+	"fmt"; "flag"; "../client"
 	"strconv"
 	"strings"
 	"os"
@@ -12,7 +13,7 @@ import ("fmt";"flag";"../client"
 	"bytes"
 )
 
-func usageText(){
+func usageText() {
 	fmt.Println("Encrypt-Decrypt")
 	fmt.Println("   encdec e id \"data\"")
 	fmt.Println("       e to encrypt")
@@ -30,7 +31,7 @@ func usageText(){
 	fmt.Println("")
 }
 
-func doOperation(op string, id []byte, param []byte, clientif client.Client)  {
+func doOperation(op string, id []byte, param []byte, clientif client.Client) {
 	var err error
 	var key []byte
 	var data []byte
@@ -58,32 +59,32 @@ func doOperation(op string, id []byte, param []byte, clientif client.Client)  {
 func main() {
 	flag.Usage = usageText
 	flag.Parse()
-	args:=flag.Args()
+	args := flag.Args()
 
 	var in *os.File
 	keyFileArg := args[2:]
 	var keyFileStdin []byte
-	if len(args) < 3 && in == nil{
+	if len(args) < 3 && in == nil {
 		in = os.Stdin
 		if in == nil {
 			fmt.Println("Missing fields")
 			usageText()
 			return
 		}
-		keyFileStdin,_=ioutil.ReadAll(in)
+		keyFileStdin, _ = ioutil.ReadAll(in)
 	}
 
-	p1:=[]byte(args[1])
+	p1 := []byte(args[1])
 	var p2 []byte
 
-	if args[0]=="d" {
+	if args[0] == "d" {
 		offset := 0
 		if len(args) >= 3 {
 			// arg on cmd line
 			keyFileArg[0] = strings.TrimLeft(keyFileArg[0], "Key: ")
 			keyFileArg[0] = strings.TrimLeft(keyFileArg[0], "key: ")
 
-			data:= make([]byte,len(args))
+			data := make([]byte, len(args))
 			for i, id := offset, 0; i < len(keyFileArg); i, id = i + 1, id + 1 {
 				s := (keyFileArg[i])
 				s = strings.TrimLeft(s, "[ ")
@@ -101,15 +102,15 @@ func main() {
 			keyFileStdin = bytes.TrimLeft(keyFileStdin, "key: ")
 			spl := bytes.Split(keyFileStdin, []byte(" "))
 			i := 0
-			data:= make([]byte,len(keyFileStdin))
-			for _,v := range spl {
-				s:= v
-				s= bytes.TrimLeft(s, "[")
-				s= bytes.TrimRight(s, "]")
-				if bytes.Contains(s, []byte("]")){
-					for i,va:= range s {
-						fmt.Println("rem",va, i)
-						if va == byte(93){
+			data := make([]byte, len(keyFileStdin))
+			for _, v := range spl {
+				s := v
+				s = bytes.TrimLeft(s, "[")
+				s = bytes.TrimRight(s, "]")
+				if bytes.Contains(s, []byte("]")) {
+					for i, va := range s {
+						fmt.Println("rem", va, i)
+						if va == byte(93) {
 							s = s[0:i]
 						}
 					}
@@ -121,8 +122,8 @@ func main() {
 			}
 			p2 = data[0:i]
 		}
-	}else{
-		p2=[]byte(args[2])
+	} else {
+		p2 = []byte(args[2])
 	}
 
 	var clientObj client.ClientStruct

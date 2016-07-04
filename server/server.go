@@ -24,7 +24,6 @@ import (
 //
 //
 
-var kkk []byte;
 var store = make(map[string][]byte)
 
 func encrypt(key, text []byte) ([]byte, error) {
@@ -33,10 +32,9 @@ func encrypt(key, text []byte) ([]byte, error) {
 		return nil, err
 	}
 	b := base64.StdEncoding.EncodeToString(text)
-	ciphertext := make([]byte, aes.BlockSize+len(b))
+	ciphertext := make([]byte, aes.BlockSize + len(b))
 	iv := ciphertext[:aes.BlockSize]
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		fmt.Println("fail ciphertext")
 		return nil, err
 	}
 	cfb := cipher.NewCFBEncrypter(block, iv)
@@ -57,18 +55,16 @@ func decrypt(key, text []byte) ([]byte, error) {
 	cfb := cipher.NewCFBDecrypter(block, iv)
 	cfb.XORKeyStream(text, text)
 
-	fmt.Println("codekey", key)
-	fmt.Println("t",text)
+	//	fmt.Println("codekey", key)
+	//	fmt.Println("t",text)
 
 	data, err := base64.StdEncoding.DecodeString(string(text))
 	if err != nil {
-		fmt.Println("decode data err")
 		return nil, err
 	}
 
 	return data, nil
 }
-
 
 func StoreServer(w http.ResponseWriter, req *http.Request) {
 
@@ -81,17 +77,14 @@ func StoreServer(w http.ResponseWriter, req *http.Request) {
 
 	res := map[string][]byte{}
 	json.Unmarshal(jData, &res)
-fmt.Println("res ",res)
-	id:= res["id"]
-	data:= res["payload"]
-
-	// data to secure store
-fmt.Println("jd",string(jData))
+	id := res["id"]
+	data := res["payload"]
 
 	key := make([]byte, 32)
 	_, err = rand.Read(key)
-	if err != nil{
-		log.Println("Key Gen: ", err)
+	if err != nil {
+		s := `{"error":"Key Gen Error: ` + err.Error() + `"}`
+		io.WriteString(w, s)
 		return
 	}
 
@@ -99,22 +92,18 @@ fmt.Println("jd",string(jData))
 
 	var encData []byte
 	encData, err = encrypt(key, data)
-	if err != nil{
-		log.Println("Encryption Error: ", err)
+	if err != nil {
+		s := `{"error":"Encryption Error: ` + err.Error() + `"}`
+		io.WriteString(w, s)
 		return
 	}
 
-	// remove file if it already exists
-	if _, err := os.Stat(string(id)); err == nil{
-		_ = os.Remove(string(id))
-	}
+
 	// write to store
 	store[string(id)] = encData
-//	ioutil.WriteFile(string(id), encData, 0644)
 	skey := base64.StdEncoding.EncodeToString(key)
-	kkk = key
-	s:=`{"aesKey":"`+skey+`"}`
-	fmt.Println(s)
+
+	s := `{"aesKey":"` + skey + `"}`
 
 	// reply to client
 	io.WriteString(w, s)
@@ -126,67 +115,44 @@ func RetrieveServer(w http.ResponseWriter, req *http.Request) {
 	jData, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		log.Fatal("ReadAll: ", err)
+		return
 	}
 
 	res := map[string][]byte{}
 	json.Unmarshal(jData, &res)
-	fmt.Println("res ",res)
-	id:= res["id"]
-//	var key = []byte {}
+	fmt.Println("res ", res)
+	id := res["id"]
 	key := res["aesKey"]
 
 	var decKey []byte
 
 	decKey, err = base64.StdEncoding.DecodeString(string(key))
-//	var  i int
-//	i=0
-//	_, err = base64.StdEncoding.Decode(ds2, key)
-//	if err != nil{
-//		fmt.Println("Key b64 decode fail")
-//	}
-	fmt.Println("ds ", decKey)
-//	fmt.Println("ds2 ", ds2)
-//	key = kkk
-	fmt.Println("kkk", len(kkk), kkk)      //  kkk is the real key saved from the encryption process and it works
+
 	// data from store
-/*	if _, err := os.Stat(string(id)); os.IsNotExist(err){
-		// reply to client
-		io.WriteString(w, `{"payload":"Data file not found"}`)
-		return
-	}
-	encData, err := ioutil.ReadFile(string(id))
-	if err != nil{
-		// reply to client
-		io.WriteString(w, `{"payload":"Error reading data file"}`)
-	}
-*/
-	if store[string(id)] == nil{
-		s:=`{"payload":"ID not found in store"}`
+	if store[string(id)] == nil {
+		s := `{"error":"ID not found in store"}`
 		io.WriteString(w, s)
 		return
 	}
 
-fmt.Println("id",id, string(id))
 	entry := store[string(id)]
 
 	encData := make([]byte, len(entry))
-	copy (encData, entry)
+	copy(encData, entry)
 
 	var decData []byte
- 	decData, err = decrypt(decKey, encData)
+	decData, err = decrypt(decKey, encData)
 
-	if err != nil{
-		s:=`{"payload":"Decryption Error: `+err.Error()+`"}`
-fmt.Println("decerr", s)
-
+	if err != nil {
+		s := `{"error":"Decryption Error: ` + err.Error() + `"}`
 		io.WriteString(w, s)
 		return
 	}
 
 	// reply to client with data
 	skey := base64.StdEncoding.EncodeToString(decData)
-	s:=`{"payload":"`+skey+`"}`
-	fmt.Println("s",s)
+	s := `{"payload":"` + skey + `"}`
+	fmt.Println("s", s)
 	io.WriteString(w, s)
 }
 

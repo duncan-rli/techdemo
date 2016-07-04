@@ -11,11 +11,9 @@ import (
 	"encoding/base64"
 )
 
-type ClientStruct struct {}
+type ClientStruct struct{}
 
-
-
-func postJson(url string, content []byte ) ([]byte, error) {
+func postJson(url string, content []byte) ([]byte, error) {
 
 	// Need to know about self signed cert
 	certs := x509.NewCertPool()
@@ -25,7 +23,7 @@ func postJson(url string, content []byte ) ([]byte, error) {
 		return nil, err
 	}
 	b := certs.AppendCertsFromPEM(pemData)
-	if b == false{
+	if b == false {
 		e := errors.New("Failed to load certificate")
 		return nil, e
 	}
@@ -36,7 +34,7 @@ func postJson(url string, content []byte ) ([]byte, error) {
 	}
 
 	hClient := &http.Client{Transport: tr}
-	req, err := http.NewRequest("POST", "https://localhost:8443/"+url, bytes.NewBuffer(content))
+	req, err := http.NewRequest("POST", "https://localhost:8443/" + url, bytes.NewBuffer(content))
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +65,9 @@ func (ClientStruct) Store(id, payload []byte) ([]byte, error) {
 		res := map[string][]byte{}
 		json.Unmarshal(rData, &res)
 		aesKey = res["aesKey"]
+		if len(aesKey) == 0 {
+			aesKey = res["error"]
+		}
 	}
 	return aesKey, err
 }
@@ -78,12 +79,11 @@ func (ClientStruct) Retrieve(id, aesKey []byte) ([]byte, error) {
 	var payload []byte
 	var err error
 	strAesKey := base64.StdEncoding.EncodeToString(aesKey)
-	if len(strAesKey) == 0{
+	if len(strAesKey) == 0 {
 		err := errors.New("Key encode failed")
 		return nil, err
 	}
-//	fmt.Println("aes", len(strAesKey), strAesKey)
-	data :=  map[string][]byte{"id": id, "aesKey": []byte(strAesKey)}
+	data := map[string][]byte{"id": id, "aesKey": []byte(strAesKey)}
 	jData, _ := json.Marshal(data)
 
 	rData, err := postJson("retrieve", jData)
@@ -92,6 +92,9 @@ func (ClientStruct) Retrieve(id, aesKey []byte) ([]byte, error) {
 		res := map[string][]byte{}
 		json.Unmarshal(rData, &res)
 		payload = res["payload"]
+		if len(payload) == 0 {
+			payload = res["error"]
+		}
 	}
 	return payload, err
 }
