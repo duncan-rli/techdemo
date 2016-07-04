@@ -122,8 +122,12 @@ func main() {
 			}
 			p2 = data[0:i]
 		}
-	} else {
+	} else if args[0] == "e" {
 		p2 = []byte(args[2])
+	} else {
+		fmt.Println("Unknown command.")
+		usageText()
+		return
 	}
 
 	var clientObj client.ClientStruct

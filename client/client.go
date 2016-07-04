@@ -18,7 +18,7 @@ func postJson(url string, content []byte) ([]byte, error) {
 	// Need to know about self signed cert
 	certs := x509.NewCertPool()
 	// Read public key
-	pemData, err := ioutil.ReadFile("/etc/ssl/tmp/server.pem")
+	pemData, err := ioutil.ReadFile("/etc/myapp/ssl/tmp/server.pem")
 	if err != nil {
 		return nil, err
 	}

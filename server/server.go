@@ -12,14 +12,13 @@ import (
 	"encoding/base64"
 	"errors"
 	"encoding/json"
-	"os"
 )
 
 
 // Commands to create certs
 //
 // openssl genrsa -out server.key 2048
-// openssl ecparam -genkey -name secp384r1 -out server.key                # WHAT DOES THIS LINE DO - IS IT NEEDED
+// openssl ecparam -genkey -name secp384r1 -out server.key
 // openssl req -new -x509 -sha256 -key server.key -out server.pem -days 3650
 //
 //
@@ -54,9 +53,6 @@ func decrypt(key, text []byte) ([]byte, error) {
 	text = text[aes.BlockSize:]
 	cfb := cipher.NewCFBDecrypter(block, iv)
 	cfb.XORKeyStream(text, text)
-
-	//	fmt.Println("codekey", key)
-	//	fmt.Println("t",text)
 
 	data, err := base64.StdEncoding.DecodeString(string(text))
 	if err != nil {
@@ -159,7 +155,7 @@ func RetrieveServer(w http.ResponseWriter, req *http.Request) {
 func main() {
 	http.HandleFunc("/store", StoreServer)
 	http.HandleFunc("/retrieve", RetrieveServer)
-	err := http.ListenAndServeTLS(":8443", "/etc/ssl/tmp/server.pem", "/etc/ssl/tmp/server.key", nil)
+	err := http.ListenAndServeTLS(":8443", "/etc/myapp/ssl/tmp/server.pem", "/etc/myapp/ssl/tmp/server.key", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
