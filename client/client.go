@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"encoding/base64"
+	"fmt"
 )
 
 type ClientStruct struct{}
@@ -20,12 +21,13 @@ func postJson(url string, content []byte) ([]byte, error) {
 	// Read public key
 	pemData, err := ioutil.ReadFile("/etc/myapp/ssl/tmp/server.pem")
 	if err != nil {
+		err := errors.New("Failed to find or read certificate")
 		return nil, err
 	}
 	b := certs.AppendCertsFromPEM(pemData)
 	if b == false {
-		e := errors.New("Failed to load certificate")
-		return nil, e
+		err := errors.New("Failed to load certificate")
+		return nil, err
 	}
 	// Create a transport that knows server cert
 	tr := &http.Transport{
@@ -55,11 +57,18 @@ func postJson(url string, content []byte) ([]byte, error) {
 }
 
 func (ClientStruct) Store(id, payload []byte) ([]byte, error) {
-	var aesKey []byte
-	var err error
+	var (
+		aesKey []byte
+		err    error
+	)
 
 	data := map[string][]byte{"id": id, "payload": payload}
-	jData, _ := json.Marshal(data)
+	jData, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println("Json Marshal fail")
+		return nil, err
+	}
+
 	rData, err := postJson("store", jData)
 	if err == nil {
 		res := map[string][]byte{}
@@ -76,15 +85,21 @@ func (ClientStruct) Store(id, payload []byte) ([]byte, error) {
 // encryption-server retrieves the original (decrypted) bytes stored
 // with the provided id
 func (ClientStruct) Retrieve(id, aesKey []byte) ([]byte, error) {
-	var payload []byte
-	var err error
+	var (
+		payload []byte
+		err error
+	)
 	strAesKey := base64.StdEncoding.EncodeToString(aesKey)
 	if len(strAesKey) == 0 {
 		err := errors.New("Key encode failed")
 		return nil, err
 	}
 	data := map[string][]byte{"id": id, "aesKey": []byte(strAesKey)}
-	jData, _ := json.Marshal(data)
+	jData, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println("Json Marshal failed")
+		return nil, err
+	}
 
 	rData, err := postJson("retrieve", jData)
 

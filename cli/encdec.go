@@ -5,7 +5,9 @@
 package main
 
 import (
-	"fmt"; "flag"; "../client"
+	"fmt"
+	"flag"
+	"../client"
 	"strconv"
 	"strings"
 	"os"
@@ -32,26 +34,32 @@ func usageText() {
 }
 
 func doOperation(op string, id []byte, param []byte, clientif client.Client) {
-	var err error
-	var key []byte
-	var data []byte
-	if op == "e" {
-		key, err = clientif.Store(id, param)
-		if nil != err {
-			fmt.Println(err.Error())
-		} else {
-			fmt.Print("Key:")
-			fmt.Println(key)
-			fmt.Println()
+	var (
+		err  error
+		key  []byte
+		data []byte
+	)
+
+	switch {
+		case op == "e" : {
+			key, err = clientif.Store(id, param)
+			if nil != err {
+				fmt.Println(err.Error())
+			} else {
+				fmt.Print("Key:")
+				fmt.Println(key)
+				fmt.Println()
+			}
 		}
-	} else if op == "d" {
-		fmt.Println(param)
-		data, err = clientif.Retrieve(id, param)
-		if nil != err {
-			fmt.Println(err.Error())
-		} else {
-			fmt.Println("Data:")
-			fmt.Println(string(data))
+		case op == "d" : {
+			fmt.Println(param)
+			data, err = clientif.Retrieve(id, param)
+			if nil != err {
+				fmt.Println(err.Error())
+			} else {
+				fmt.Println("Data:")
+				fmt.Println(string(data))
+			}
 		}
 	}
 }
@@ -62,22 +70,36 @@ func main() {
 	args := flag.Args()
 
 	var in *os.File
+	in = os.Stdin
+	if len(args) < 3 || in == nil {
+		fmt.Println("Missing fields")
+		usageText()
+		return
+	}
+	operation := args[1]
 	keyFileArg := args[2:]
 	var keyFileStdin []byte
-	if len(args) < 3 && in == nil {
-		in = os.Stdin
-		if in == nil {
-			fmt.Println("Missing fields")
-			usageText()
+	var err error
+	//	if len(args) < 3 && in == nil
+	//	{
+	//		if in == nil {
+	//			fmt.Println("Missing fields")
+	//			usageText()
+	//			return
+	//		}
+	if len(args) == 3 {
+		keyFileStdin, err = ioutil.ReadAll(in)
+		if err != nil {
+			fmt.Println("Error in reading key file ")
 			return
 		}
-		keyFileStdin, _ = ioutil.ReadAll(in)
 	}
 
-	p1 := []byte(args[1])
+	id := []byte(args[2])
 	var p2 []byte
 
-	if args[0] == "d" {
+	switch {
+	case operation == "d": // param for decode operation
 		offset := 0
 		if len(args) >= 3 {
 			// arg on cmd line
@@ -85,7 +107,7 @@ func main() {
 			keyFileArg[0] = strings.TrimLeft(keyFileArg[0], "key: ")
 
 			data := make([]byte, len(args))
-			for i, id := offset, 0; i < len(keyFileArg); i, id = i + 1, id + 1 {
+			for i, id := offset, 0; i < len(keyFileArg); i, id = i+1, id+1 {
 				s := (keyFileArg[i])
 				s = strings.TrimLeft(s, "[ ")
 				s = strings.TrimRight(s, "] ")
@@ -116,21 +138,26 @@ func main() {
 					}
 				}
 				ss := string(s)
-				num, _ := strconv.Atoi(ss)
+				num, err := strconv.Atoi(ss)
+				if err != nil {
+					fmt.Println("Atoi fail ", ss)
+
+				}
 				data[i] = byte(num)
 				i++
 			}
 			p2 = data[0:i]
 		}
-	} else if args[0] == "e" {
-		p2 = []byte(args[2])
-	} else {
+	case operation == "e": // param for encode operation
+		p2 = []byte(args[3])
+	default:
 		fmt.Println("Unknown command.")
 		usageText()
 		return
 	}
 
+	// create interface to connect client
 	var clientObj client.ClientStruct
-	doOperation(args[0], p1, p2, clientObj)
+	doOperation(operation, id, p2, clientObj)
 
 }

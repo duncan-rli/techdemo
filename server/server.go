@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 )
 
-
 // Commands to create certs
 //
 // openssl genrsa -out server.key 2048
@@ -30,8 +29,9 @@ func encrypt(key, text []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	b := base64.StdEncoding.EncodeToString(text)
-	ciphertext := make([]byte, aes.BlockSize + len(b))
+	ciphertext := make([]byte, aes.BlockSize+len(b))
 	iv := ciphertext[:aes.BlockSize]
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
 		return nil, err
@@ -42,6 +42,9 @@ func encrypt(key, text []byte) ([]byte, error) {
 }
 
 func decrypt(key, text []byte) ([]byte, error) {
+	if len(key) < 32 {
+		return nil, errors.New("Key too short")
+	}
 	block, err := aes.NewCipher(key[0:32])
 	if err != nil {
 		return nil, err
@@ -93,7 +96,6 @@ func StoreServer(w http.ResponseWriter, req *http.Request) {
 		io.WriteString(w, s)
 		return
 	}
-
 
 	// write to store
 	store[string(id)] = encData
@@ -155,7 +157,10 @@ func RetrieveServer(w http.ResponseWriter, req *http.Request) {
 func main() {
 	http.HandleFunc("/store", StoreServer)
 	http.HandleFunc("/retrieve", RetrieveServer)
-	err := http.ListenAndServeTLS(":8443", "/etc/myapp/ssl/tmp/server.pem", "/etc/myapp/ssl/tmp/server.key", nil)
+	err := http.ListenAndServeTLS(":8443",
+		"/etc/myapp/ssl/tmp/server.pem",
+		"/etc/myapp/ssl/tmp/server.key",
+		nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
