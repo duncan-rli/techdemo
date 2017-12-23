@@ -13,6 +13,7 @@ import (
 	"os"
 	"io/ioutil"
 	"bytes"
+//	"image/draw"
 )
 
 func usageText() {
@@ -30,6 +31,7 @@ func usageText() {
 	fmt.Println("       id to identify data")
 	fmt.Println("       key to unlock data")
 	fmt.Println("	encdec d id < key.txt")
+	fmt.Println("	encdec d id Key :[xx xx xx xx xx...]")
 	fmt.Println("")
 }
 
@@ -71,55 +73,67 @@ func main() {
 
 	var in *os.File
 	in = os.Stdin
-	if len(args) < 3 || in == nil {
+	if len(args) < 2 || in == nil {
 		fmt.Println("Missing fields")
 		usageText()
 		return
 	}
-	operation := args[1]
-	keyFileArg := args[2:]
-	var keyFileStdin []byte
-	var err error
-	//	if len(args) < 3 && in == nil
-	//	{
-	//		if in == nil {
-	//			fmt.Println("Missing fields")
-	//			usageText()
-	//			return
-	//		}
-	if len(args) == 3 {
+	operation := args[0]
+
+	var (
+		keyFileStdin []byte
+		err error
+	)
+	if len(args) == 2 && operation == "e" {
+		fmt.Println("Field missing")
+		usageText()
+		return
+	} else if len(args) == 2 && operation == "d" {
+		// key data from redirected file, this doesnt work when the file is specified in the debugger
 		keyFileStdin, err = ioutil.ReadAll(in)
 		if err != nil {
-			fmt.Println("Error in reading key file ")
+			fmt.Println("Error in reading key file data")
 			return
 		}
+	} else if len(args) > 5 && operation == "e" {
+		fmt.Println("Too many fields")
+		usageText()
+		return
 	}
 
-	id := []byte(args[2])
+	id := []byte(args[1])
 	var p2 []byte
 
 	switch {
+	case operation == "e": // param for encode operation
+		p2 = []byte(args[2])
 	case operation == "d": // param for decode operation
-		offset := 0
-		if len(args) >= 3 {
+		if len(args) >= 3 && args[2] != "<" {
 			// arg on cmd line
+			keyFileArg := args[2:]
+			if len(keyFileArg) == 0 {
+				fmt.Println("Parameter field error")
+				return
+			}
 			keyFileArg[0] = strings.TrimLeft(keyFileArg[0], "Key: ")
 			keyFileArg[0] = strings.TrimLeft(keyFileArg[0], "key: ")
 
 			data := make([]byte, len(args))
-			for i, id := offset, 0; i < len(keyFileArg); i, id = i+1, id+1 {
-				s := (keyFileArg[i])
+			for i:= 0; i < len(keyFileArg); i = i+1 {
+				s := keyFileArg[i]
 				s = strings.TrimLeft(s, "[ ")
 				s = strings.TrimRight(s, "] ")
-				v, _ := strconv.Atoi(s)
-				data[id] = byte(v)
+				v, err := strconv.Atoi(s)
+				if err != nil {
+					fmt.Println("Error in keyfile")
+					return
+				}
+				data[i] = byte(v)
 			}
 			p2 = data
 		} else {
-			// arg from stdin
-			if bytes.Equal(keyFileStdin[0:6], ([]byte("Key:\n[")[:])) == true {
-				offset = 6
-			}
+			// arg from redirected from stdin
+			fmt.Println("redirected")
 			keyFileStdin = bytes.TrimLeft(keyFileStdin, "Key: ")
 			keyFileStdin = bytes.TrimLeft(keyFileStdin, "key: ")
 			spl := bytes.Split(keyFileStdin, []byte(" "))
@@ -131,7 +145,6 @@ func main() {
 				s = bytes.TrimRight(s, "]")
 				if bytes.Contains(s, []byte("]")) {
 					for i, va := range s {
-						fmt.Println("rem", va, i)
 						if va == byte(93) {
 							s = s[0:i]
 						}
@@ -141,21 +154,21 @@ func main() {
 				num, err := strconv.Atoi(ss)
 				if err != nil {
 					fmt.Println("Atoi fail ", ss)
-
+					return
 				}
 				data[i] = byte(num)
 				i++
 			}
 			p2 = data[0:i]
+			fmt.Println("p2: ", p2)
 		}
-	case operation == "e": // param for encode operation
-		p2 = []byte(args[3])
 	default:
 		fmt.Println("Unknown command.")
 		usageText()
 		return
 	}
 
+	fmt.Println("p2: ", p2)
 	// create interface to connect client
 	var clientObj client.ClientStruct
 	doOperation(operation, id, p2, clientObj)

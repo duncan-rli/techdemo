@@ -1,0 +1,27 @@
+Encrypt-Decrypt
+
+There are two parts to the application, the server and the command line client.
+The server is call server.  The command line interface is called "encdec".
+
+To encrypt
+	encdec e id "datatext"
+		where e is to encrypt
+	             id to identify data
+	             data to encrypt
+
+this will return the key required to decrypt the data, and can be redirected to a file
+
+	encdec e id "data" > key.txt
+
+
+To decrypt	
+	encdec d id key
+		where d is to decrypt
+		      id to identify data
+		      key to unlock data
+
+with the key from a file
+	encdec d id < key.txt
+or with the key as a parameter
+	encdec d id Key :[xx xx xx xx xx...]
+	
