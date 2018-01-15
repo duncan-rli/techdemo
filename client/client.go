@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"encoding/base64"
 	"fmt"
 )
 
@@ -62,7 +61,7 @@ func (ClientStruct) Store(id, payload []byte) ([]byte, error) {
 		err    error
 	)
 
-	data := map[string][]byte{"id": id, "payload": payload}
+	data := map[string][]byte{"id": id, "data": payload}
 	jData, err := json.Marshal(data)
 	if err != nil {
 		fmt.Println("Json Marshal fail")
@@ -86,10 +85,10 @@ func (ClientStruct) Store(id, payload []byte) ([]byte, error) {
 // with the provided id
 func (ClientStruct) Retrieve(id, aesKey []byte) ([]byte, error) {
 	var (
-		payload []byte
+		returnedData []byte
 		err error
 	)
-	strAesKey := base64.StdEncoding.EncodeToString(aesKey)
+	strAesKey := string(aesKey)
 	if len(strAesKey) == 0 {
 		err := errors.New("Key encode failed")
 		return nil, err
@@ -102,14 +101,18 @@ func (ClientStruct) Retrieve(id, aesKey []byte) ([]byte, error) {
 	}
 
 	rData, err := postJson("retrieve", jData)
-
 	if err == nil {
 		res := map[string][]byte{}
-		json.Unmarshal(rData, &res)
-		payload = res["payload"]
-		if len(payload) == 0 {
-			payload = res["error"]
+		err = json.Unmarshal(rData, &res)
+		if err != nil {
+			fmt.Println("Json UnMarshal fail")
+			return nil, err
+		}
+		returnedErr := res["error"]
+		returnedData = res["data"]
+		if len(returnedErr)!= 0 {
+			returnedData = res["error"]
 		}
 	}
-	return payload, err
+	return returnedData, err
 }

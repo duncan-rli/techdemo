@@ -1,17 +1,18 @@
 package main
 
 import (
-	"io"
-	"log"
-	"net/http"
-	"fmt"
-	"io/ioutil"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"net/http"
 )
 
 // Commands to create certs
@@ -68,43 +69,66 @@ func decrypt(key, text []byte) ([]byte, error) {
 func StoreServer(w http.ResponseWriter, req *http.Request) {
 
 	defer req.Body.Close()
+	var errorStr string
+
 	jData, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		log.Println("ReadAll: ", err)
-		return
+		errorStr = "ReadAll: " + err.Error()
 	}
 
 	res := map[string][]byte{}
-	json.Unmarshal(jData, &res)
+
+	// create map to unmarshal into
+	if len(errorStr) == 0 {
+		err = json.Unmarshal(jData, &res)
+		if err != nil {
+			errorStr = "Json UnMarshal error"
+		}
+	}
+	// get data from unmarshal result
 	id := res["id"]
-	data := res["payload"]
+	data := res["data"]
 
 	key := make([]byte, 32)
-	_, err = rand.Read(key)
-	if err != nil {
-		s := `{"error":"Key Gen Error: ` + err.Error() + `"}`
-		io.WriteString(w, s)
-		return
+	if len(errorStr) == 0 {
+		_, err = rand.Read(key)
+		if err != nil {
+			errorStr = `"Key Gen Error: ` + err.Error() + `"`
+		}
 	}
-
-	fmt.Println("key ", key)
-
+	// encrypt the data
 	var encData []byte
-	encData, err = encrypt(key, data)
-	if err != nil {
-		s := `{"error":"Encryption Error: ` + err.Error() + `"}`
-		io.WriteString(w, s)
-		return
+	if len(errorStr) == 0 {
+		encData, err = encrypt(key, data)
+		if err != nil {
+			errorStr = `Encryption Error: ` + err.Error() + `"`
+		}
 	}
 
-	// write to store
-	store[string(id)] = encData
-	skey := base64.StdEncoding.EncodeToString(key)
+	if len(errorStr) == 0 {
+		// hash the id
+		sum256Id := sha256.Sum256([]byte(id))
+		sum256IdStr := base64.StdEncoding.EncodeToString([]byte(sum256Id[:]))
 
-	s := `{"aesKey":"` + skey + `"}`
+		// write to store
+		store[sum256IdStr] = encData
+	}
+
+	// form response message
+	respData := map[string][]byte{"aesKey": key, "error": []byte(errorStr)}
+	jRespData, err := json.Marshal(respData)
+	if err != nil {
+		fmt.Println("Json Marshal failed")
+		return
+	}
 
 	// reply to client
-	io.WriteString(w, s)
+	jRespDataStr := string(jRespData)
+	_, err = io.WriteString(w, jRespDataStr)
+	if err != nil {
+		fmt.Print("IO write error")
+	}
+	return
 }
 
 func RetrieveServer(w http.ResponseWriter, req *http.Request) {
@@ -116,42 +140,68 @@ func RetrieveServer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	var (
+		errorStr, sum256IdStr string
+	)
+
 	res := map[string][]byte{}
-	json.Unmarshal(jData, &res)
-	fmt.Println("res ", res)
-	id := res["id"]
-	key := res["aesKey"]
-
-	var decKey []byte
-
-	decKey, err = base64.StdEncoding.DecodeString(string(key))
-
-	// data from store
-	if store[string(id)] == nil {
-		s := `{"error":"ID not found in store"}`
-		io.WriteString(w, s)
-		return
+	err = json.Unmarshal(jData, &res)
+	if err != nil {
+		errorStr = `"Json Unmarshall Error: ` + err.Error() + `"`
 	}
 
-	entry := store[string(id)]
+	var (
+		id  []byte
+		key []byte
+	)
 
-	encData := make([]byte, len(entry))
-	copy(encData, entry)
+	if len(errorStr) == 0 {
+		id = res["id"]
+		key = res["aesKey"]
+	}
+
+	// hash the id
+	if len(errorStr) == 0 {
+		sum256Id := sha256.Sum256([]byte(id))
+		sum256IdStr = base64.StdEncoding.EncodeToString([]byte(sum256Id[:]))
+
+		// check for entry in store
+		if store[sum256IdStr] == nil {
+			errorStr = `"ID not found in store"`
+		}
+	}
 
 	var decData []byte
-	decData, err = decrypt(decKey, encData)
 
+	// retrieve from store
+	if len(errorStr) == 0 {
+		entry := store[sum256IdStr]
+		encData := make([]byte, len(entry))
+		copy(encData, entry)
+
+		// decrypt retrieved data
+		decData, err = decrypt(key, encData)
+		if err != nil {
+			errorStr = `"Decryption Error: ` + err.Error() + `"`
+		}
+	}
+
+	// form response message
+	respData := map[string][]byte{"data": decData, "error": []byte(errorStr)}
+	jRespData, err := json.Marshal(respData)
 	if err != nil {
-		s := `{"error":"Decryption Error: ` + err.Error() + `"}`
-		io.WriteString(w, s)
+		fmt.Println("Json Marshal failed")
 		return
 	}
 
 	// reply to client with data
-	skey := base64.StdEncoding.EncodeToString(decData)
-	s := `{"payload":"` + skey + `"}`
-	fmt.Println("s", s)
-	io.WriteString(w, s)
+	jRespDataStr := string(jRespData)
+	_, err = io.WriteString(w, jRespDataStr)
+	if err != nil {
+		fmt.Print("IO write error")
+	}
+	return
+
 }
 
 func main() {

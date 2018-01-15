@@ -54,12 +54,12 @@ func doOperation(op string, id []byte, param []byte, clientif client.Client) {
 			}
 		}
 		case op == "d" : {
-			fmt.Println(param)
+//			fmt.Println(param)
 			data, err = clientif.Retrieve(id, param)
 			if nil != err {
 				fmt.Println(err.Error())
 			} else {
-				fmt.Println("Data:")
+				fmt.Println("Received from server:")
 				fmt.Println(string(data))
 			}
 		}
@@ -84,18 +84,19 @@ func main() {
 		keyFileStdin []byte
 		err error
 	)
-	if len(args) == 2 && operation == "e" {
+	switch {
+	case len(args) == 2 && operation == "e" :
 		fmt.Println("Field missing")
 		usageText()
 		return
-	} else if len(args) == 2 && operation == "d" {
+	case len(args) == 2 && operation == "d" :
 		// key data from redirected file, this doesnt work when the file is specified in the debugger
 		keyFileStdin, err = ioutil.ReadAll(in)
 		if err != nil {
 			fmt.Println("Error in reading key file data")
 			return
 		}
-	} else if len(args) > 5 && operation == "e" {
+	case len(args) > 5 && operation == "e" :
 		fmt.Println("Too many fields")
 		usageText()
 		return
@@ -133,7 +134,6 @@ func main() {
 			p2 = data
 		} else {
 			// arg from redirected from stdin
-			fmt.Println("redirected")
 			keyFileStdin = bytes.TrimLeft(keyFileStdin, "Key: ")
 			keyFileStdin = bytes.TrimLeft(keyFileStdin, "key: ")
 			spl := bytes.Split(keyFileStdin, []byte(" "))
@@ -160,7 +160,6 @@ func main() {
 				i++
 			}
 			p2 = data[0:i]
-			fmt.Println("p2: ", p2)
 		}
 	default:
 		fmt.Println("Unknown command.")
@@ -168,7 +167,7 @@ func main() {
 		return
 	}
 
-	fmt.Println("p2: ", p2)
+
 	// create interface to connect client
 	var clientObj client.ClientStruct
 	doOperation(operation, id, p2, clientObj)
