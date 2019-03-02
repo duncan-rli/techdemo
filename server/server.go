@@ -1,3 +1,4 @@
+// Server component of techdemo
 package main
 
 import (

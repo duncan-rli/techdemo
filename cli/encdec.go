@@ -1,5 +1,5 @@
 //
-// encrypt/decrypt application for core interview test
+// encrypt/decrypt application for core interview test, cli
 //
 
 package main

@@ -1,0 +1,1 @@
+Run endec (encode-decode)  without parameters to get usage.

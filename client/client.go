@@ -1,3 +1,4 @@
+// Used by CLI as client to connect to Server
 package client
 
 import (
